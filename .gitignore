@@ -5,3 +5,4 @@ optimize-images.mjs
 *-original.jpeg
 *.code-workspace
 .claude/
+*.py
