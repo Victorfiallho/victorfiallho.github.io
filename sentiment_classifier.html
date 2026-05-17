@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PT Sentiment Classifier</title>
+  <style>
+    :root {
+      --black: #080808;
+      --white: #f0ede6;
+      --accent: #c8ff00;
+      --accent-dim: #a3d000;
+      --muted: #555450;
+      --border: rgba(240,237,230,0.08);
+      --card-bg: #111110;
+      --positive: #4ade80;
+      --negative: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'DM Mono', -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.4;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 4rem 2rem;
+      display: grid;
+      grid-template-columns: minmax(300px, 1fr) minmax(320px, 1.2fr);
+      gap: 4rem;
+      align-items: start;
+    }
+
+    /* ── LEFT PANEL ── */
+    .left-panel {
+      padding-top: 2rem;
+    }
+
+    .bg-word {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(100px, 20vw, 280px);
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(240,237,230,0.04);
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+      letter-spacing: -0.02em;
+      z-index: 0;
+    }
+
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .eyebrow::before {
+      content: '';
+      display: block;
+      width: 24px;
+      height: 1px;
+      background: var(--accent);
+    }
+
+    .heading {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(32px, 5vw, 56px);
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 1.5rem;
+    }
+
+    .description {
+      font-family: 'Fraunces', serif;
+      font-size: 1rem;
+      line-height: 1.8;
+      color: rgba(240,237,230,0.65);
+      font-weight: 300;
+      margin-bottom: 3rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      margin-bottom: 0;
+    }
+
+    .stat-cell {
+      background: var(--black);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      transition: background 0.2s ease;
+    }
+
+    .stat-cell:hover { background: var(--card-bg); }
+
+    .stat-value {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: clamp(1.2rem, 2vw, 1.6rem);
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── RIGHT PANEL ── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .input-section {
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      background: var(--card-bg);
+      border-radius: 4px;
+    }
+
+    .input-label {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      display: block;
+    }
+
+    .example-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .example-btn {
+      padding: 0.5rem 0.75rem;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border: 1px solid rgba(200,255,0,0.2);
+      background: rgba(200,255,0,0.04);
+      color: var(--accent-dim);
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .example-btn:hover {
+      border-color: rgba(200,255,0,0.4);
+      background: rgba(200,255,0,0.08);
+      color: var(--accent);
+    }
+
+    textarea {
+      width: 100%;
+      padding: 1rem;
+      background: var(--black);
+      border: 1px solid var(--border);
+      color: var(--white);
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: none;
+      height: 120px;
+      border-radius: 2px;
+      transition: border-color 0.2s ease;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .char-count {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 0.5rem;
+      text-align: right;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    button.analyze {
+      flex: 1;
+      padding: 0.75rem 1.5rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      font-size: 0.85rem;
+      border: 1px solid rgba(200,255,0,0.3);
+      background: rgba(200,255,0,0.06);
+      color: var(--accent);
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    button.analyze:hover:not(:disabled) {
+      background: rgba(200,255,0,0.12);
+      border-color: rgba(200,255,0,0.5);
+      transform: translate(2px, -2px);
+      box-shadow: 4px 4px 0 rgba(200,255,0,0.1);
+    }
+
+    button.analyze:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-align: center;
+      min-height: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .status.processing {
+      color: var(--accent);
+    }
+
+    .status.success {
+      color: var(--positive);
+    }
+
+    .status.error {
+      color: var(--negative);
+    }
+
+    .output-section {
+      display: none;
+      border: 1px solid var(--border);
+      padding: 2rem;
+      background: var(--card-bg);
+      border-radius: 4px;
+      animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .output-section.visible {
+      display: block;
+    }
+
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      gap: 1rem;
+    }
+
+    .sentiment-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sentiment-emoji {
+      font-size: 2.5rem;
+      display: block;
+    }
+
+    .sentiment-text {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .sentiment-positive {
+      color: var(--positive);
+    }
+
+    .sentiment-negative {
+      color: var(--negative);
+    }
+
+    .gauge-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    svg.gauge {
+      width: 150px;
+      height: 150px;
+      filter: drop-shadow(0 0 10px rgba(200,255,0,0.1));
+    }
+
+    .gauge-label {
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    .gauge-percentage {
+      font-size: 2rem;
+      font-weight: 800;
+      font-family: 'Syne', sans-serif;
+      color: var(--accent);
+    }
+
+    .processed-text {
+      background: var(--black);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      border-radius: 2px;
+      font-style: italic;
+      color: rgba(240,237,230,0.7);
+      word-break: break-word;
+      line-height: 1.6;
+    }
+
+    .processing-time {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 0.75rem;
+      text-align: right;
+    }
+
+    .history-section {
+      display: none;
+    }
+
+    .history-section.visible {
+      display: block;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .history-title {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .clear-history-btn {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .clear-history-btn:hover {
+      border-color: var(--negative);
+      color: var(--negative);
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .history-card {
+      border: 1px solid var(--border);
+      padding: 0.75rem;
+      background: var(--black);
+      border-radius: 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.2s ease;
+      animation: slideIn 0.3s ease forwards;
+    }
+
+    .history-card:hover {
+      border-color: var(--accent);
+      background: var(--card-bg);
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .history-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: rgba(240,237,230,0.6);
+      font-size: 0.9rem;
+    }
+
+    .history-sentiment {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .history-emoji {
+      font-size: 1rem;
+    }
+
+    .history-label {
+      font-weight: 700;
+      font-size: 0.85rem;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    .history-positive {
+      color: var(--positive);
+    }
+
+    .history-negative {
+      color: var(--negative);
+    }
+
+    .history-confidence {
+      font-size: 0.8rem;
+      color: var(--muted);
+      min-width: 45px;
+      text-align: right;
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 2rem 1.5rem;
+      }
+
+      .left-panel {
+        padding-top: 0;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .example-buttons {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .result-header {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .gauge-container {
+        order: 1;
+      }
+
+      .sentiment-badge {
+        order: 2;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+      <p class="eyebrow">AI-Powered Text Analysis</p>
+      <h1 class="heading">Sentiment<br>Classifier</h1>
+      <p class="description">
+        Portuguese language sentiment analysis powered by machine learning. TF-IDF vectorization and Logistic Regression identify emotional tone in real-time.
+      </p>
+
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="stat-value">94%</div>
+          <div class="stat-label">Accuracy</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value">PT</div>
+          <div class="stat-label">Language</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value">ML</div>
+          <div class="stat-label">Powered</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <!-- INPUT SECTION -->
+      <div class="input-section">
+        <label class="input-label">Try These Examples</label>
+        <div class="example-buttons">
+          <button class="example-btn" onclick="loadExample('positive')">Positive</button>
+          <button class="example-btn" onclick="loadExample('negative')">Negative</button>
+          <button class="example-btn" onclick="loadExample('neutral')">Neutral</button>
+          <button class="example-btn" onclick="loadExample('mixed')">Mixed</button>
+        </div>
+
+        <label class="input-label">Write Your Text</label>
+        <textarea id="inputText" placeholder="Type something to analyze..."></textarea>
+        <div class="char-count">
+          <span id="charCount">0</span> characters
+        </div>
+
+        <div class="button-group">
+          <button class="analyze" id="analyzeBtn" onclick="analyzeText()">Analyze</button>
+        </div>
+        <div class="status" id="status"></div>
+      </div>
+
+      <!-- OUTPUT SECTION -->
+      <div class="output-section" id="output">
+        <div class="result-header">
+          <div class="sentiment-badge" id="sentimentBadge"></div>
+          <div class="gauge-container" id="gaugeContainer"></div>
+        </div>
+
+        <div>
+          <div class="input-label">Processed Text</div>
+          <div class="processed-text" id="processedText"></div>
+          <div class="processing-time" id="processingTime"></div>
+        </div>
+      </div>
+
+      <!-- HISTORY SECTION -->
+      <div class="history-section" id="historySection">
+        <div class="history-header">
+          <span class="history-title">Analysis History</span>
+          <button class="clear-history-btn" onclick="clearHistory()">Clear</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let history = [];
+    let startTime = 0;
+    let modelData = null;
+
+    const examples = {
+      positive: 'Eu amo esse algoritmo de IA! É absolutamente incrível e maravilhoso!',
+      negative: 'Isso é péssimo, muito ruim e frustrante. Que algoritmo horrível!',
+      neutral: 'Este é um texto sobre análise de sentimentos em português.',
+      mixed: 'Gostei de algumas partes, mas outras foram decepcionantes.'
+    };
+
+    // Carregar modelo na inicialização
+    async function loadModel() {
+      try {
+        const response = await fetch('sentiment_model.json');
+        modelData = await response.json();
+        console.log('Modelo carregado com sucesso!');
+      } catch (error) {
+        console.error('Erro ao carregar modelo:', error);
+      }
+    }
+
+    // TF-IDF Vectorizer em JavaScript
+    function tfidfVectorize(text, modelData) {
+      const words = text.toLowerCase().match(/\b\w+\b/g) || [];
+      const wordCount = {};
+
+      words.forEach(word => {
+        wordCount[word] = (wordCount[word] || 0) + 1;
+      });
+
+      const vector = new Array(modelData.feature_names.length).fill(0);
+      const totalWords = words.length;
+
+      Object.keys(wordCount).forEach(word => {
+        const wordIndex = modelData.vocabulary[word];
+        if (wordIndex !== undefined) {
+          const tf = wordCount[word] / totalWords;
+          const idf = modelData.idf[wordIndex];
+          vector[wordIndex] = tf * idf;
+        }
+      });
+
+      return vector;
+    }
+
+    // Logistic Regression prediction
+    function predict(vector, modelData) {
+      let logit = modelData.intercept;
+
+      for (let i = 0; i < vector.length; i++) {
+        logit += vector[i] * modelData.coef[i];
+      }
+
+      const probability = 1 / (1 + Math.exp(-logit));
+      const sentiment = probability > 0.5 ? 'Positivo' : 'Negativo';
+      const confidence = Math.abs((probability - 0.5) * 2) * 100;
+
+      return {
+        sentiment,
+        confidence: Math.min(confidence, 99.9)
+      };
+    }
+
+    // Carregar modelo quando página carrega
+    window.addEventListener('load', loadModel);
+
+    function loadExample(type) {
+      document.getElementById('inputText').value = examples[type];
+      updateCharCount();
+      document.getElementById('inputText').focus();
+    }
+
+    function updateCharCount() {
+      const count = document.getElementById('inputText').value.length;
+      document.getElementById('charCount').textContent = count;
+    }
+
+    document.getElementById('inputText').addEventListener('keyup', updateCharCount);
+    document.getElementById('inputText').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) analyzeText();
+    });
+
+    async function analyzeText() {
+      const inputText = document.getElementById('inputText').value.trim();
+      const statusDiv = document.getElementById('status');
+      const btn = document.getElementById('analyzeBtn');
+
+      if (!inputText) {
+        statusDiv.textContent = '⚠ Please write something to analyze';
+        statusDiv.className = 'status error';
+        return;
+      }
+
+      if (!modelData) {
+        statusDiv.textContent = '✗ Model loading... try again';
+        statusDiv.className = 'status error';
+        return;
+      }
+
+      btn.disabled = true;
+      statusDiv.textContent = '⏳ Analyzing...';
+      statusDiv.className = 'status processing';
+      startTime = performance.now();
+
+      try {
+        // Processar localmente (sem servidor)
+        const vector = tfidfVectorize(inputText, modelData);
+        const prediction = predict(vector, modelData);
+        const processingTime = Math.round(performance.now() - startTime);
+
+        const data = {
+          texto: inputText,
+          sentimento: prediction.sentiment,
+          confianca: prediction.confidence
+        };
+
+        displayResult(data, processingTime);
+        addToHistory(data);
+
+        statusDiv.textContent = '✓ Analysis complete';
+        statusDiv.className = 'status success';
+      } catch (error) {
+        console.error('Error:', error);
+        statusDiv.textContent = '✗ Error during analysis';
+        statusDiv.className = 'status error';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function displayResult(data, processingTime) {
+      const output = document.getElementById('output');
+      const badge = document.getElementById('sentimentBadge');
+      const processed = document.getElementById('processedText');
+      const timeDiv = document.getElementById('processingTime');
+      const gaugeContainer = document.getElementById('gaugeContainer');
+
+      const isSentimentPositive = data.sentimento === 'Positivo';
+      const emoji = isSentimentPositive ? '😊' : '😔';
+      const sentimentClass = isSentimentPositive ? 'sentiment-positive' : 'sentiment-negative';
+      const confidence = data.confianca;
+
+      badge.innerHTML = `
+        <div class="sentiment-text ${sentimentClass}">${data.sentimento}</div>
+      `;
+
+      processed.textContent = `"${data.texto}"`;
+      timeDiv.textContent = `Processed in ${processingTime}ms`;
+
+      // Create gauge SVG
+      gaugeContainer.innerHTML = createGaugeSVG(confidence);
+
+      output.classList.add('visible');
+      document.getElementById('historySection').classList.add('visible');
+
+      // Animate gauge
+      setTimeout(() => animateGauge(confidence), 100);
+    }
+
+    function createGaugeSVG(confidence) {
+      const radius = 65;
+      const circumference = 2 * Math.PI * radius;
+      const startAngle = -90;
+      const endAngle = 360 * (confidence / 100);
+
+      // Gradient color based on confidence (softer gradient)
+      let color = '#ff6b6b'; // Red for low confidence
+      if (confidence >= 35 && confidence < 65) color = '#ffc107'; // Yellow for medium
+      if (confidence >= 65) color = '#4ade80'; // Green for high confidence
+
+      return `
+        <defs>
+          <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#ffc107;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#4ade80;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <svg class="gauge" viewBox="0 0 160 160">
+          <circle cx="80" cy="80" r="${radius}" fill="none" stroke="rgba(240,237,230,0.1)" stroke-width="8"/>
+          <circle cx="80" cy="80" r="${radius}" fill="none" stroke="${color}" stroke-width="8"
+                  stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}"
+                  stroke-linecap="round" opacity="0.85" class="gauge-progress"
+                  transform="rotate(${startAngle} 80 80)"/>
+          <text x="80" y="80" text-anchor="middle" dominant-baseline="middle" class="gauge-percentage" id="gaugePercent">0%</text>
+        </svg>
+        <div class="gauge-label">
+          <span id="gaugeConfidence">0</span>% confidence
+        </div>
+      `;
+    }
+
+    function animateGauge(targetConfidence) {
+      const circle = document.querySelector('.gauge-progress');
+      const percentText = document.getElementById('gaugePercent');
+      const confText = document.getElementById('gaugeConfidence');
+      const radius = 65;
+      const circumference = 2 * Math.PI * radius;
+      const targetOffset = circumference - (circumference * targetConfidence / 100);
+
+      let current = 0;
+      const duration = 800;
+      const startTime = performance.now();
+
+      function animate(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeProgress = easeOutCubic(progress);
+
+        const currentConfidence = Math.round(easeProgress * targetConfidence);
+        const currentOffset = circumference - (circumference * easeProgress * targetConfidence / 100);
+
+        circle.style.strokeDashoffset = currentOffset;
+        percentText.textContent = currentConfidence + '%';
+        confText.textContent = currentConfidence;
+
+        if (progress < 1) requestAnimationFrame(animate);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    function easeOutCubic(x) {
+      return 1 - Math.pow(1 - x, 3);
+    }
+
+    function addToHistory(data) {
+      const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      history.unshift({ ...data, timestamp });
+      if (history.length > 10) history.pop();
+
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const historyList = document.getElementById('historyList');
+      historyList.innerHTML = history.map((item, idx) => {
+        const isSentimentPositive = item.sentimento === 'Positivo';
+        const labelClass = isSentimentPositive ? 'history-positive' : 'history-negative';
+
+        return `
+          <div class="history-card" style="animation-delay: ${idx * 0.05}s">
+            <div class="history-text" title="${item.texto}">"${item.texto}"</div>
+            <div class="history-sentiment">
+              <span class="history-label ${labelClass}">${item.sentimento}</span>
+            </div>
+            <div class="history-confidence">${item.confianca.toFixed(0)}%</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function clearHistory() {
+      if (confirm('Clear all history?')) {
+        history = [];
+        document.getElementById('historyList').innerHTML = '';
+        document.getElementById('historySection').classList.remove('visible');
+      }
+    }
+  </script>
+</body>
+</html>
