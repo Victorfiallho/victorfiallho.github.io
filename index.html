@@ -20,8 +20,8 @@
  
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
  
-    html { scroll-behavior: smooth; }
- 
+    html { scroll-behavior: smooth; overflow-x: hidden; }
+
     body {
       background: var(--black);
       color: var(--white);
@@ -575,14 +575,23 @@
     @media (max-width: 768px) {
       nav { padding: 1.25rem 1.5rem; }
       .nav-links { display: none; }
-      .hero { padding: 0 1.5rem 3rem; }
+      .nav-status { display: none; }
+      .hero { padding: 0 1.5rem 3rem; min-height: 100svh; }
+      .hero-bg-text { display: none; }
       .hero-grid { grid-template-columns: 1fr; gap: 2rem; }
+      .hero-title { font-size: clamp(44px, 14vw, 80px); }
+      .hero-desc { font-size: 0.95rem; max-width: 100%; }
       .about, .projects, .skills, .contact, footer { padding-left: 1.5rem; padding-right: 1.5rem; }
       .about { grid-template-columns: 1fr; gap: 2rem; }
+      .about-photo { aspect-ratio: 4/3; max-height: 260px; }
+      .about-stats { grid-template-columns: 1fr 1fr; gap: 1rem; }
       .skills-grid { grid-template-columns: repeat(2, 1fr); }
-      .project-item { grid-template-columns: 48px 1fr auto; gap: 1rem; }
+      .project-item { grid-template-columns: 40px 1fr; gap: 0.75rem; }
+      .project-right { display: none; }
+      .project-desc { font-size: 12px; }
       .contact-inner { grid-template-columns: 1fr; gap: 3rem; }
       .section-label { padding: 0 1.5rem; }
+      footer { flex-direction: column; gap: 0.5rem; text-align: center; }
     }
  
     /* ── HERO PHOTO (DSC00181) ── */
